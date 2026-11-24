@@ -10,6 +10,7 @@ authors:
     affiliation: "Ramaiah Institute of Technology, Bangalore, India"
 version: "1.0.0"
 date-released: "2026-11-24"
+doi: "10.5281/zenodo.24489050"
 repository-code: "https://github.com/pqsirius12/pe-omp-llm"
 license: MIT
 keywords: [OpenMP, large language models, asymmetric multicore, Apple M4, loop scheduling]

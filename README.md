@@ -1,5 +1,7 @@
 # pe-omp-llm
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.24489050.svg)](https://doi.org/10.5281/zenodo.24489050)
+
 Code, prompts, LLM answers and measurements for the paper
 
 > **Heterogeneity-Blind? Evaluating LLM-Generated OpenMP Code on an Asymmetric P/E-Core Processor**
@@ -72,4 +74,4 @@ Model outputs are included for research reproducibility; each provider's terms o
 
 ## Citation
 
-See `CITATION.cff`, or cite the paper above.
+See `CITATION.cff`, or cite the paper above. Archived on Zenodo: [10.5281/zenodo.24489050](https://doi.org/10.5281/zenodo.24489050) (always resolves to the latest version).

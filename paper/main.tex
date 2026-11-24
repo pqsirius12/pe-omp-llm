@@ -44,7 +44,7 @@ We answer the question on an Apple M4 (4\,P\,+\,6\,E cores, macOS), where the op
 (2)~Direct evidence of where threads ran, from per-core activity sampled during every run, together with per-run CPU energy.
 (3)~A taxonomy separating heterogeneity-blind scheduling, compiler failures and algorithmic shortcuts, with a two-factor speedup decomposition that keeps shortcuts from masquerading as good parallelization.
 (4)~An evaluation of hardware-aware prompting and measurement feedback against expert schedules, including an AID-style calibrated split~\cite{saez2020aid}.
-(5)~All prompts, raw replies, timings, power logs and scripts, released for reproduction. \todo{repository URL and DOI}
+(5)~All prompts, raw replies, timings, power logs and scripts, released for reproduction at \url{https://github.com/pqsirius12/pe-omp-llm} and archived on Zenodo (doi:\,\href{https://doi.org/10.5281/zenodo.24489050}{10.5281/zenodo.24489050}).
 
 %=====================================================================
 \section{Background and Related Work}
@@ -166,6 +166,9 @@ Using all cores with a good schedule is also the most frugal option: one mandelb
 
 \section{Conclusion}
 LLMs parallelize loops for asymmetric P/E-core processors without ever considering that the cores differ. They lose little on irregular loops, where habit leads them to adaptive schedules, and up to \NumStaticUniMax\% on uniform loops, where habit leads them to static ones. Describing the hardware helps some models and not others; measurement feedback helps none with the asymmetry and makes shortcuts about \NumShortcutRatio{} times more common. Simple practices---adaptive schedules everywhere, or oversubscription---recover most of the loss, while start-up calibration does not survive thread migration on macOS. Our prompts, answers, timings, power logs and scripts are released to support replication on other hybrid processors.
+
+\section*{Acknowledgment}
+Claude (Anthropic) helped draft the text, analysis scripts and figures. The authors ran all experiments and verified every result.
 
 \bibliographystyle{IEEEtran}
 \bibliography{refs}
