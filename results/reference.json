@@ -1,0 +1,62 @@
+{
+ "saxpy": {
+  "time_s": 1.463853,
+  "checksum": 809778874.1757
+ },
+ "matmul": {
+  "time_s": 2.105302,
+  "checksum": 2147652263.021
+ },
+ "jacobi2d": {
+  "time_s": 1.713348,
+  "checksum": 2096793.862896
+ },
+ "trisum": {
+  "time_s": 1.977027,
+  "checksum": 316105.7168842
+ },
+ "mandelbrot": {
+  "time_s": 2.938703,
+  "checksum": 724508153.0
+ },
+ "spmv": {
+  "time_s": 1.800453,
+  "checksum": 3868330.682052
+ },
+ "nbody": {
+  "time_s": 1.520977,
+  "checksum": 1289574026.06
+ },
+ "histogram": {
+  "time_s": 1.545637,
+  "checksum": 514027417660.0
+ },
+ "norm": {
+  "time_s": 1.650879,
+  "checksum": 707204142.5399
+ },
+ "prefix": {
+  "time_s": 1.089864,
+  "checksum": 247503846928900.0
+ },
+ "primes": {
+  "time_s": 1.886623,
+  "checksum": 602489.0
+ },
+ "collatz": {
+  "time_s": 2.3161,
+  "checksum": 1552724686.0
+ },
+ "conv2d": {
+  "time_s": 5.120631,
+  "checksum": 9273373.197731
+ },
+ "kmeans": {
+  "time_s": 2.168895,
+  "checksum": 4087.78359418
+ },
+ "cutoff": {
+  "time_s": 2.080518,
+  "checksum": 366814620.0
+ }
+}

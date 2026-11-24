@@ -1,0 +1,9 @@
+~/Projects/pe-omp-research/variants/prefix/gemma-4-31b-it__hw__s3.c:27:39: error: expected '(' after 'inclusive'
+   27 |             #pragma omp scan inclusive
+      |                                       ^
+      |                                       (
+~/Projects/pe-omp-research/variants/prefix/gemma-4-31b-it__hw__s3.c:27:39: error: exactly one of 'inclusive' or 'exclusive' clauses is expected
+~/Projects/pe-omp-research/variants/prefix/gemma-4-31b-it__hw__s3.c:24:54: error: the inscan reduction list item must appear as a list item in an 'inclusive' or 'exclusive' clause on an inner 'omp scan' directive
+   24 |         #pragma omp parallel for reduction(inscan, +:run) schedule(guided)
+      |                                                      ^~~
+3 errors generated.

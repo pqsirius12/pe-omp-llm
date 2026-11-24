@@ -1,0 +1,12 @@
+{
+ "site": "chatgpt",
+ "kernel": "primes",
+ "style": "fb",
+ "sample": 1,
+ "url": "/c/6b0290e4-b09c-83e8-80b6-9d9fdfe201e7",
+ "saved": "2026-11-22T06:51:25.424Z",
+ "think": false,
+ "plan": "Go (renewal pending)",
+ "code": "/* k11_primes: count primes below n by trial division.\n * IRREGULAR: testing i costs up to sqrt(i) divisions for primes but stops\n * early for most composites, so cost rises with i and jumps around. */\n#include \"common.h\"\n#include <omp.h>\n\n/* === KERNEL BEGIN === */\nstatic long kernel(long n) {\n    if (n <= 2) return 0;\n\n    long count = 1;  /* Prime 2 */\n\n    #pragma omp parallel for reduction(+:count) schedule(guided, 64)\n    for (long i = 3; i < n; i += 2) {\n        int prime = 1;\n        for (long d = 3; d * d <= i; d += 2) {\n            if (i % d == 0) {\n                prime = 0;\n                break;\n            }\n        }\n        count += prime;\n    }\n\n    return count;\n}\n/* === KERNEL END === */\n\nint main(int argc, char **argv) {\n    long n = arg_long(argc, argv, 1, 6000000);\n\n    double t0 = now_sec();\n    long c = kernel(n);\n    double t1 = now_sec();\n\n    report(\"primes\", t1 - t0, (double)c);\n    return 0;\n}",
+ "reply": "ChatGPT said:\nC\n/* k11_primes: count primes below n by trial division.\n * IRREGULAR: testing i costs up to sqrt(i) divisions for primes but stops\n * early for most composites, so cost rises with i and jumps around. */\n#include \"common.h\"\n#include <omp.h>\n\n/* === KERNEL BEGIN === */\nstatic long kernel(long n) {\n    if (n <= 2) return 0;\n\n    long count = 1;  /* Prime 2 */\n\n    #pragma omp parallel for reduction(+:count) schedule(guided, 64)\n    for (long i = 3; i < n; i += 2) {\n        int prime = 1;\n        for (long d = 3; d * d <= i; d += 2) {\n            if (i % d == 0) {\n                prime = 0;\n                break;\n            }\n        }\n        count += prime;\n    }\n\n    return count;\n}\n/* === KERNEL END === */\n\nint main(int argc, char **argv) {\n    long n = arg_long(argc, argv, 1, 6000000);\n\n    double t0 = now_sec();\n    long c = kernel(n);\n    double t1 = now_sec();\n\n    report(\"primes\", t1 - t0, (double)c);\n    return 0;\n}"
+}

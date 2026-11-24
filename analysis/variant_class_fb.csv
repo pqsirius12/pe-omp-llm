@@ -1,0 +1,19 @@
+kernel,variant_glob,cls,note
+trisum,gemma-4-31b-it__fb__s*,W1,vectorised inner loop (all terms kept)
+conv2d,*__fb__s*,W1,loop reordering / row accumulation / simd (all MACs kept)
+saxpy,claude-web__fb__s1,W1,cache blocking; repetition loop kept
+saxpy,deepseek-web__fb__s1,W2,repetitions folded algebraically (reps multiplied out)
+matmul,claude-web__fb__s1,W1,tiling + packing (all FLOPs kept)
+trisum,claude-web__fb__s1,W1,vectorised blocks (all terms kept)
+mandelbrot,claude-web__fb__s1,W2,cardioid/period-2 bulb interior test + periodicity check skip iterations
+nbody,*__fb__s*,W1,vectorised inner loop (all pairs kept)
+histogram,*__fb__s*,W2,counts one pass then multiplies by reps
+histogram,gemma-4-31b-it__hwx__s1,W2,bins[data[i]] += reps (repetitions folded)
+norm,*__fb__s*,W2,one pass then multiplies or adds the pass sum reps times
+norm,gemma-4-31b-it__hwx__s1,W2,one pass then multiplies by reps
+primes,*__fb__s*,W2,sieve or odd-only search (algorithmic change)
+primes,gemma-4-31b-it__hwx__s1,W2,sieve (algorithmic change)
+collatz,*__fb__s*,W2,memo cache / lookup table / ctz step skipping
+kmeans,*__fb__s*,W1,loop reordering of distance computation (all distances kept)
+cutoff,claude-web__fb__s1,W1,vectorisable scan (same pairs examined)
+spmv,gemma-4-31b-it__fb__s*,W1,repetition loop kept; inner loop unrolled/vectorised

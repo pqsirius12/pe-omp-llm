@@ -1,0 +1,154 @@
+Parallelize the C program below with OpenMP so that it runs as fast as possible.
+Rules:
+- Change only the code between the "=== KERNEL BEGIN ===" and "=== KERNEL END ===" markers.
+  You may add #include lines at the top of the file.
+- Keep main(), the function signature of kernel(), and the output line unchanged.
+- The program must give the same result as the serial version.
+- It will be compiled with: clang -O2 -fopenmp (OpenMP 5.1) and run with
+  OMP_NUM_THREADS set to each value from 1 to 10.
+
+Reply with the complete modified program in a single ```c code block.
+
+The program includes "common.h", shown first for reference (do not change it):
+```c
+/* common.h - shared helpers for every kernel program.
+ * Nothing here is parallel: timing, deterministic input generation,
+ * argument parsing and the one-line result report the harness parses. */
+#ifndef COMMON_H
+#define COMMON_H
+
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+
+/* Wall-clock seconds from a monotonic clock (unaffected by clock changes). */
+static inline double now_sec(void) {
+    struct timespec t;
+    clock_gettime(CLOCK_MONOTONIC, &t);
+    return (double)t.tv_sec + (double)t.tv_nsec * 1e-9;
+}
+
+/* xorshift64: tiny deterministic generator, identical on Linux and macOS,
+ * so every run and every LLM variant gets exactly the same input data. */
+static uint64_t rng_state = 88172645463325252ULL;
+static inline void rng_seed(uint64_t s) { rng_state = s ? s : 1; }
+static inline uint64_t rng_next(void) {
+    rng_state ^= rng_state << 13;
+    rng_state ^= rng_state >> 7;
+    rng_state ^= rng_state << 17;
+    return rng_state;
+}
+/* Uniform double in [0, 1): top 53 bits of the generator. */
+static inline double rng_unit(void) {
+    return (double)(rng_next() >> 11) * (1.0 / 9007199254740992.0);
+}
+
+static inline long arg_long(int argc, char **argv, int i, long def) {
+    return argc > i ? atol(argv[i]) : def;
+}
+
+static inline void *xmalloc(size_t n) {
+    void *p = malloc(n);
+    if (!p) { fprintf(stderr, "out of memory (%zu bytes)\n", n); exit(1); }
+    return p;
+}
+
+/* One machine-readable line per run; the harness parses exactly this. */
+static inline void report(const char *name, double secs, double checksum) {
+    printf("kernel=%s time_s=%.6f checksum=%.12e\n", name, secs, checksum);
+}
+
+#endif
+
+```
+
+Program to parallelize:
+```c
+/* k11_primes: count primes below n by trial division.
+ * IRREGULAR: testing i costs up to sqrt(i) divisions for primes but stops
+ * early for most composites, so cost rises with i and jumps around. */
+#include "common.h"
+
+/* === KERNEL BEGIN === */
+static long kernel(long n) {
+    long count = 0;
+    for (long i = 2; i < n; i++) {
+        int prime = 1;
+        for (long d = 2; d * d <= i; d++)
+            if (i % d == 0) { prime = 0; break; }
+        count += prime;
+    }
+    return count;
+}
+/* === KERNEL END === */
+
+int main(int argc, char **argv) {
+    long n = arg_long(argc, argv, 1, 6000000);
+
+    double t0 = now_sec();
+    long c = kernel(n);
+    double t1 = now_sec();
+
+    report("primes", t1 - t0, (double)c);
+    return 0;
+}
+
+```
+
+A previous answer to this request is shown below. It compiles and gives the correct result. It was measured on the target machine (median of 5 runs, wall-clock time of kernel() only):
+- serial version: 0.915 s
+- previous answer: 0.914 s with OMP_NUM_THREADS=1, 0.268 s with 4, 0.205 s with 10
+Improve the performance of the previous answer, keeping all the rules above. Reply with the complete modified program in a single ```c code block.
+
+Previous answer:
+```c
+/* k11_primes: count primes below n by trial division.
+ * IRREGULAR: testing i costs up to sqrt(i) divisions for primes but stops
+ * early for most composites, so cost rises with i and jumps around. */
+#include "common.h"
+#include <omp.h>
+
+/* === KERNEL BEGIN === */
+static long kernel(long n) {
+    long count = 0;
+    if (n < 2) return 0;
+
+    /* Split [2, n) into chunks. Dynamic scheduling balances the
+     * increasing cost per candidate. Each thread accumulates locally. */
+    long chunk = 4096;
+    long nchunks = (n - 2 + chunk - 1) / chunk;
+
+    #pragma omp parallel
+    {
+        long local = 0;
+        #pragma omp for schedule(dynamic, 1) nowait
+        for (long c = 0; c < nchunks; c++) {
+            long lo = 2 + c * chunk;
+            long hi = lo + chunk;
+            if (hi > n) hi = n;
+            for (long i = lo; i < hi; i++) {
+                int prime = 1;
+                for (long d = 2; d * d <= i; d++)
+                    if (i % d == 0) { prime = 0; break; }
+                local += prime;
+            }
+        }
+        #pragma omp atomic
+        count += local;
+    }
+    return count;
+}
+/* === KERNEL END === */
+
+int main(int argc, char **argv) {
+    long n = arg_long(argc, argv, 1, 6000000);
+
+    double t0 = now_sec();
+    long c = kernel(n);
+    double t1 = now_sec();
+
+    report("primes", t1 - t0, (double)c);
+    return 0;
+}
+```

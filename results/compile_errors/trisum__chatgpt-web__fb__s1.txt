@@ -1,0 +1,5 @@
+~/Projects/pe-omp-research/variants/trisum/chatgpt-web__fb__s1.c:23:27: error: call to undeclared library function 'sqrt' with type 'double (double)'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+   23 |         long lo = (long)((sqrt(1.0 + 8.0 * lo_work) - 1.0) * 0.5);
+      |                           ^
+~/Projects/pe-omp-research/variants/trisum/chatgpt-web__fb__s1.c:23:27: note: include the header <math.h> or explicitly provide a declaration for 'sqrt'
+1 error generated.

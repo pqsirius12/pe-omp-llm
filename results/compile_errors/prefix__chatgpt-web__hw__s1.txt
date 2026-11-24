@@ -1,0 +1,10 @@
+~/Projects/pe-omp-research/variants/prefix/chatgpt-web__hw__s1.c:11:14: error: call to undeclared function 'omp_get_max_threads'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+   11 |     int nt = omp_get_max_threads();
+      |              ^
+~/Projects/pe-omp-research/variants/prefix/chatgpt-web__hw__s1.c:20:23: error: call to undeclared function 'omp_get_thread_num'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+   20 |             int tid = omp_get_thread_num();
+      |                       ^
+~/Projects/pe-omp-research/variants/prefix/chatgpt-web__hw__s1.c:21:24: error: call to undeclared function 'omp_get_num_threads'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+   21 |             int team = omp_get_num_threads();
+      |                        ^
+3 errors generated.

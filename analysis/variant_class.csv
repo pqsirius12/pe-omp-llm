@@ -1,0 +1,30 @@
+kernel,variant_glob,cls,note
+saxpy,gemma-4-31b-it__*,W1,loop interchange (reps loop moved inside; all FLOPs kept; memory-bound -> latency-bound)
+saxpy,gemini-3_8-flash__*,W1,loop interchange + explicit NEON FMA unrolling (all FLOPs kept)
+conv2d,chatgpt-web__*,W1,omp simd reduction on inner filter loop (FP reassociation)
+conv2d,deepseek-web__*,W1,omp simd reduction on inner filter loop (FP reassociation)
+nbody,*,W1-if-F>1.15,omp simd reduction on inner j loop (FP reassociation)
+matmul,gemini-3_8-flash__plain__s1,W1,4-row register blocking + k-tiling
+trisum,gemma-4-31b-it__hw__s2,W1,omp simd reduction on inner j loop (FP reassociation)
+norm,deepseek-web__plain__s1,W1c,loop interchange; loop-invariant sqrt then hoistable by compiler (source keeps all ops)
+histogram,gemma-4-31b-it__*,W1c,loop interchange; per-element reps loop collapsible by compiler to +=reps (comment says so)
+norm,chatgpt-web__hw__s1,W2,computes one pass then multiplies (reps-1) copies: repeated work removed in source
+norm,gemma-4-31b-it__hw__s1,W2,returns s*reps: repeated work removed in source
+primes,gemma-4-31b-it__hw__s1,W2,skips even candidates and even divisors (algorithmic pruning ~2x)
+primes,gemma-4-31b-it__plain__s1,W2,skips even candidates and even divisors
+primes,gemma-4-31b-it__plain__s3,W2,skips even candidates and even divisors
+histogram,claude-web__*,W2,one pass then bins*reps: repeated work removed in source
+collatz,claude-web__*,W2,count trailing zeros (ctz) to take many halving steps at once: algorithmic step-skipping
+primes,claude-web__*,W2,odd candidates and odd divisors only (algorithmic pruning ~2x)
+conv2d,claude-web__*,W1,filter held in registers + omp simd row accumulation (all MACs kept)
+norm,claude-web__*,W1,omp simd reduction per repetition (all reps kept)
+saxpy,claude-web__*,W1,cache blocking: all reps on an L1-resident block (all FLOPs kept)
+matmul,claude-web__hw__s1,W1,tiling + packed k-blocks + 4x8 NEON register micro-kernel
+trisum,claude-web__*,W1,row blocking + vectorised inner loop (all terms kept)
+mandelbrot,claude-web__hw__s1,W1,two pixels interleaved per iteration (all iterations kept)
+cutoff,claude-web__hw__s1,W1,precomputed scan bound + vectorisable inner loop (same pairs examined)
+conv2d,deepseek-api__plain__s*,W1,omp simd on inner filter loop (all MACs kept)
+histogram,deepseek-api__hw__s3,W2,counts one pass then multiplies by reps
+norm,deepseek-api__hw__s2,W2,one pass then multiplies by reps
+primes,deepseek-api__plain__s2,W2,odd-only candidates/divisors (algorithmic pruning)
+primes,deepseek-api__hw__s3,W1,precomputed sqrt bound; same divisions performed

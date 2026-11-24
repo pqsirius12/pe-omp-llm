@@ -1,0 +1,10 @@
+~/Projects/pe-omp-research/variants/kmeans/deepseek-api__plain__s1.c:37:23: error: call to undeclared function 'omp_get_thread_num'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+   37 |             int tid = omp_get_thread_num();
+      |                       ^
+~/Projects/pe-omp-research/variants/kmeans/deepseek-api__plain__s1.c:38:22: error: call to undeclared function 'omp_get_num_threads'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+   38 |             int nt = omp_get_num_threads();
+      |                      ^
+~/Projects/pe-omp-research/variants/kmeans/deepseek-api__plain__s1.c:54:22: error: call to undeclared function 'omp_get_max_threads'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+   54 |         int nslots = omp_get_max_threads();
+      |                      ^
+3 errors generated.

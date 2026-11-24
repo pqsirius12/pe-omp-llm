@@ -1,0 +1,15 @@
+cff-version: 1.2.0
+message: "If you use this code or data, please cite it as below."
+title: "pe-omp-llm: Code and data for Heterogeneity-Blind? Evaluating LLM-Generated OpenMP Code on an Asymmetric P/E-Core Processor"
+authors:
+  - family-names: Shayeeb
+    given-names: Mohamed Qurrain
+    affiliation: "Ramaiah Institute of Technology, Bangalore, India"
+  - family-names: "M"
+    given-names: Mallegowda
+    affiliation: "Ramaiah Institute of Technology, Bangalore, India"
+version: "1.0.0"
+date-released: "2026-11-24"
+repository-code: "https://github.com/pqsirius12/pe-omp-llm"
+license: MIT
+keywords: [OpenMP, large language models, asymmetric multicore, Apple M4, loop scheduling]

@@ -1,0 +1,4 @@
+~/Projects/pe-omp-research/variants/prefix/gemma-4-31b-it__plain__s2.c:19:54: error: the inscan reduction list item must appear as a list item in an 'inclusive' or 'exclusive' clause on an inner 'omp scan' directive
+   19 |         #pragma omp parallel for reduction(inscan, +:run)
+      |                                                      ^~~
+1 error generated.

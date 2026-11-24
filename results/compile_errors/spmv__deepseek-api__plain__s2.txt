@@ -1,0 +1,4 @@
+~/Projects/pe-omp-research/variants/spmv/deepseek-api__plain__s2.c:21:32: error: condition of OpenMP for loop must be a relational comparison ('<', '<=', '>', '>=', or '!=') of loop variable 'blk'
+   21 |             for (long blk = 0; blk * B < n; blk++) {
+      |                                ^~~~~~~~~~~
+1 error generated.

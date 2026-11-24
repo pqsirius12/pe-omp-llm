@@ -1,0 +1,115 @@
+Parallelize the C program below with OpenMP so that it runs as fast as possible.
+Rules:
+- Change only the code between the "=== KERNEL BEGIN ===" and "=== KERNEL END ===" markers.
+  You may add #include lines at the top of the file.
+- Keep main(), the function signature of kernel(), and the output line unchanged.
+- The program must give the same result as the serial version.
+- It will be compiled with: clang -O2 -fopenmp (OpenMP 5.1) and run with
+  OMP_NUM_THREADS set to each value from 1 to 10.
+
+Target machine: Apple M4 (MacBook Air, macOS). Its 10 CPU cores are not identical:
+4 performance cores (P-cores) and 6 efficiency cores (E-cores), which are slower.
+The operating system decides which core each thread runs on; threads cannot be
+pinned to specific cores.
+Write the code so that it performs well on this machine despite the slower E-cores.
+
+Reply with the complete modified program in a single ```c code block.
+
+The program includes "common.h", shown first for reference (do not change it):
+```c
+/* common.h - shared helpers for every kernel program.
+ * Nothing here is parallel: timing, deterministic input generation,
+ * argument parsing and the one-line result report the harness parses. */
+#ifndef COMMON_H
+#define COMMON_H
+
+#include <stdint.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <time.h>
+
+/* Wall-clock seconds from a monotonic clock (unaffected by clock changes). */
+static inline double now_sec(void) {
+    struct timespec t;
+    clock_gettime(CLOCK_MONOTONIC, &t);
+    return (double)t.tv_sec + (double)t.tv_nsec * 1e-9;
+}
+
+/* xorshift64: tiny deterministic generator, identical on Linux and macOS,
+ * so every run and every LLM variant gets exactly the same input data. */
+static uint64_t rng_state = 88172645463325252ULL;
+static inline void rng_seed(uint64_t s) { rng_state = s ? s : 1; }
+static inline uint64_t rng_next(void) {
+    rng_state ^= rng_state << 13;
+    rng_state ^= rng_state >> 7;
+    rng_state ^= rng_state << 17;
+    return rng_state;
+}
+/* Uniform double in [0, 1): top 53 bits of the generator. */
+static inline double rng_unit(void) {
+    return (double)(rng_next() >> 11) * (1.0 / 9007199254740992.0);
+}
+
+static inline long arg_long(int argc, char **argv, int i, long def) {
+    return argc > i ? atol(argv[i]) : def;
+}
+
+static inline void *xmalloc(size_t n) {
+    void *p = malloc(n);
+    if (!p) { fprintf(stderr, "out of memory (%zu bytes)\n", n); exit(1); }
+    return p;
+}
+
+/* One machine-readable line per run; the harness parses exactly this. */
+static inline void report(const char *name, double secs, double checksum) {
+    printf("kernel=%s time_s=%.6f checksum=%.12e\n", name, secs, checksum);
+}
+
+#endif
+
+```
+
+Program to parallelize:
+```c
+/* k05_mandelbrot: escape-time iteration count per pixel.
+ * IRREGULAR and UNPREDICTABLE: pixels inside the set run to max_iter,
+ * pixels outside escape early, and the costly rows sit in the middle. */
+#include "common.h"
+
+/* === KERNEL BEGIN === */
+static void kernel(int w, int h, int max_iter, int *iters) {
+    for (int py = 0; py < h; py++) {
+        for (int px = 0; px < w; px++) {
+            double cr = -2.0 + 3.0 * px / w, ci = -1.5 + 3.0 * py / h;
+            double zr = 0.0, zi = 0.0;
+            int k = 0;
+            while (k < max_iter && zr * zr + zi * zi <= 4.0) {
+                double t = zr * zr - zi * zi + cr;
+                zi = 2.0 * zr * zi + ci;
+                zr = t;
+                k++;
+            }
+            iters[(long)py * w + px] = k;
+        }
+    }
+}
+/* === KERNEL END === */
+
+int main(int argc, char **argv) {
+    int w = (int)arg_long(argc, argv, 1, 2048);
+    int h = (int)arg_long(argc, argv, 2, 2048);
+    int max_iter = (int)arg_long(argc, argv, 3, 1000);
+    int *iters = xmalloc((long)w * h * sizeof *iters);
+
+    double t0 = now_sec();
+    kernel(w, h, max_iter, iters);
+    double t1 = now_sec();
+
+    double sum = 0.0;   /* integer counts: exact regardless of thread order */
+    for (long k = 0; k < (long)w * h; k++) sum += iters[k];
+    report("mandelbrot", t1 - t0, sum);
+    free(iters);
+    return 0;
+}
+
+```

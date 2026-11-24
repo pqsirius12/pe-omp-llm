@@ -1,0 +1,42 @@
+/* k04_trisum: out[i] = sum_{j<=i} x[j] / (1 + i - j).
+ * IRREGULAR: row i costs i+1 operations, so cost grows linearly with i.
+ * A plain static split gives the last thread far more work, even before
+ * P/E-core asymmetry is added on top. Compute-bound, no large matrix. */
+#include "common.h"
+#include <omp.h>
+
+/* === KERNEL BEGIN === */
+static void kernel(long n, const double *x, double *out) {
+    /* Row i costs i+1 adds/divs; total cost ~ n^2/2, dominated by the tail.
+     * Dynamic scheduling with a small chunk balances the linear cost ramp
+     * across heterogeneous P/E cores (OS may migrate threads). Each chunk
+     * of size C at row i costs ~ i*C operations, so grabbing chunks from a
+     * shared counter naturally lets fast threads absorb more of the heavy
+     * tail. Chunk ~32 keeps ~n/32 ~ 1250 tasks for 1..10 threads: plenty
+     * of granularity without excessive scheduling overhead. */
+    #pragma omp parallel for schedule(dynamic, 32)
+    for (long i = 0; i < n; i++) {
+        double s = 0.0;
+        for (long j = 0; j <= i; j++)
+            s += x[j] / (double)(1 + i - j);
+        out[i] = s;
+    }
+}
+/* === KERNEL END === */
+
+int main(int argc, char **argv) {
+    long n = arg_long(argc, argv, 1, 40000);
+    double *x = xmalloc(n * sizeof *x), *out = xmalloc(n * sizeof *out);
+    rng_seed(4);
+    for (long i = 0; i < n; i++) x[i] = rng_unit();
+
+    double t0 = now_sec();
+    kernel(n, x, out);
+    double t1 = now_sec();
+
+    double sum = 0.0;
+    for (long i = 0; i < n; i++) sum += out[i];
+    report("trisum", t1 - t0, sum);
+    free(x); free(out);
+    return 0;
+}

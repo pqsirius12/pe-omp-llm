@@ -1,0 +1,115 @@
+/* k14_kmeans: Lloyd's k-means, fixed number of iterations.
+ * Assignment step: UNIFORM and easy to parallelize.
+ * Update step: every point adds into a shared cluster sum - a reduction
+ * TRAP, like the histogram. Sum order changes floating-point results, so
+ * the harness compares with a relative tolerance. */
+#include "common.h"
+#include <string.h>
+
+#define D 8
+#define K 16
+
+/* === KERNEL BEGIN === */
+static void kernel(long n, int iters, const double *pts, double *cent, int *label) {
+    for (int it = 0; it < iters; it++) {
+        #pragma omp parallel for schedule(static)
+        for (long i = 0; i < n; i++) {               /* assignment */
+            int best = 0; double bd = 1e300;
+            for (int c = 0; c < K; c++) {
+                double d = 0.0;
+                for (int k = 0; k < D; k++) {
+                    double t = pts[i * D + k] - cent[c * D + k];
+                    d += t * t;
+                }
+                if (d < bd) { bd = d; best = c; }
+            }
+            label[i] = best;
+        }
+
+        #pragma omp parallel
+        {
+            double lsum[K * D];
+            long lcnt[K];
+            for (int c = 0; c < K * D; c++) lsum[c] = 0.0;
+            for (int c = 0; c < K; c++) lcnt[c] = 0;
+
+            #pragma omp for schedule(static) nowait
+            for (long i = 0; i < n; i++) {
+                int c = label[i];
+                lcnt[c]++;
+                const double *p = pts + i * D;
+                double *s = lsum + c * D;
+                for (int k = 0; k < D; k++) s[k] += p[k];
+            }
+
+            #pragma omp critical
+            {
+                /* We need shared accumulators; use thread 0's storage via
+                 * a static reduction into cent temporarily is messy, so
+                 * accumulate directly into shared arrays under critical. */
+            }
+
+            /* Reduce local sums into shared arrays. */
+            static double ssum[K * D];
+            static long scnt[K];
+            (void)ssum; (void)scnt;
+            #pragma omp barrier
+
+            /* Use a single shared set of accumulators: write into cent-adjacent
+             * scratch by having only one thread init, then atomic-free critical add. */
+            /* Simpler: use arrays on the stack of the master via omp single + barrier. */
+            /* Fallback: accumulate into per-thread and then merge with atomics. */
+            #pragma omp for schedule(static)
+            for (int c = 0; c < K; c++) {
+                /* placeholder to satisfy structure */
+            }
+
+            /* Merge: use a critical section per thread to add into a shared buffer. */
+            /* We store shared buffer in heap-free static storage below. */
+            static double shared_sum[K * D];
+            static long shared_cnt[K];
+            #pragma omp single
+            {
+                for (int c = 0; c < K * D; c++) shared_sum[c] = 0.0;
+                for (int c = 0; c < K; c++) shared_cnt[c] = 0;
+            }
+            #pragma omp barrier
+            #pragma omp critical
+            {
+                for (int c = 0; c < K; c++) {
+                    shared_cnt[c] += lcnt[c];
+                    for (int k = 0; k < D; k++) shared_sum[c * D + k] += lsum[c * D + k];
+                }
+            }
+            #pragma omp barrier
+            #pragma omp single
+            {
+                for (int c = 0; c < K; c++)
+                    if (shared_cnt[c] > 0)
+                        for (int k = 0; k < D; k++)
+                            cent[c * D + k] = shared_sum[c * D + k] / shared_cnt[c];
+            }
+        }
+    }
+}
+/* === KERNEL END === */
+
+int main(int argc, char **argv) {
+    long n = arg_long(argc, argv, 1, 2000000);
+    int iters = (int)arg_long(argc, argv, 2, 10);
+    double *pts = xmalloc(n * D * sizeof *pts), cent[K * D];
+    int *label = xmalloc(n * sizeof *label);
+    rng_seed(14);
+    for (long k = 0; k < n * D; k++) pts[k] = rng_unit();
+    for (int k = 0; k < K * D; k++) cent[k] = pts[k];   /* first K points */
+
+    double t0 = now_sec();
+    kernel(n, iters, pts, cent, label);
+    double t1 = now_sec();
+
+    double sum = 0.0;
+    for (int k = 0; k < K * D; k++) sum += cent[k] * (k + 1);
+    report("kmeans", t1 - t0, sum);
+    free(pts); free(label);
+    return 0;
+}

@@ -1,0 +1,16 @@
+~/Projects/pe-omp-research/variants/prefix/deepseek-api__plain__s3.c:16:20: error: call to undeclared function 'omp_get_num_threads'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+   16 |         nthreads = omp_get_num_threads();
+      |                    ^
+~/Projects/pe-omp-research/variants/prefix/deepseek-api__plain__s3.c:26:23: error: call to undeclared function 'omp_get_thread_num'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+   26 |             int tid = omp_get_thread_num();
+      |                       ^
+~/Projects/pe-omp-research/variants/prefix/deepseek-api__plain__s3.c:27:23: error: call to undeclared function 'omp_get_num_threads'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+   27 |             int nth = omp_get_num_threads();
+      |                       ^
+~/Projects/pe-omp-research/variants/prefix/deepseek-api__plain__s3.c:49:23: error: call to undeclared function 'omp_get_thread_num'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+   49 |             int tid = omp_get_thread_num();
+      |                       ^
+~/Projects/pe-omp-research/variants/prefix/deepseek-api__plain__s3.c:50:23: error: call to undeclared function 'omp_get_num_threads'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+   50 |             int nth = omp_get_num_threads();
+      |                       ^
+5 errors generated.

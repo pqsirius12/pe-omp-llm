@@ -1,0 +1,12 @@
+== full size (200M x 20); correct = 5.140274176600e+11
+expert -O2 (as benchmarked), 1 thread        5.110281052000e+11
+expert -O2, no auto-vectorization            5.140274176600e+11
+expert -O0 (no optimization)                 5.140274176600e+11
+expert -O2, 4 threads                        5.110281052000e+11
+expert -O2, 4 thr, forced critical reduce    5.110281052000e+11
+gemma hw_s1 -O2, 1 thread                    5.110281052000e+11
+gemma hw_s1 -O2, no auto-vectorization       5.140274176600e+11
+== small size (20M x 2); correct = 5.140413612000e+09
+expert -O2, 1 thread                         5.110430474000e+09
+expert -O2, no auto-vectorization            5.140413612000e+09
+Apple clang version 21.0.0 (clang-2100.3.34.2)

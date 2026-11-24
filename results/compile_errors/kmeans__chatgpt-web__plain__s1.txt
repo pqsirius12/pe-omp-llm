@@ -1,0 +1,4 @@
+~/Projects/pe-omp-research/variants/kmeans/chatgpt-web__plain__s1.c:47:23: error: call to undeclared function 'omp_get_thread_num'; ISO C99 and later do not support implicit function declarations [-Wimplicit-function-declaration]
+   47 |             int tid = omp_get_thread_num();
+      |                       ^
+1 error generated.

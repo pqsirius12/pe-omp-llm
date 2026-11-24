@@ -1,0 +1,61 @@
+/* k02_matmul: C = A*B (n x n). UNIFORM cost per row, compute-bound. */
+#include "common.h"
+#include <string.h>
+#include <omp.h>
+
+/* === KERNEL BEGIN === */
+static void kernel(int n, const double *A, const double *B, double *C) {
+    if (n <= 0) return;
+
+    int BK = 64;
+    while (BK > 8 && (long)BK * n * sizeof(double) > 512 * 1024) {
+        BK /= 2;
+    }
+    if (BK > n) BK = n;
+
+    #pragma omp parallel
+    {
+        #pragma omp for schedule(static)
+        for (int i = 0; i < n; i++) {
+            memset(C + (long)i * n, 0, (size_t)n * sizeof(double));
+        }
+
+        for (int bk = 0; bk < n; bk += BK) {
+            int bk_end = bk + BK;
+            if (bk_end > n) bk_end = n;
+
+            #pragma omp for schedule(static)
+            for (int i = 0; i < n; i++) {
+                double * restrict ci = C + (long)i * n;
+                for (int k = bk; k < bk_end; k++) {
+                    double a = A[(long)i * n + k];
+                    const double * restrict bk_ptr = B + (long)k * n;
+                    #pragma omp simd
+                    for (int j = 0; j < n; j++) {
+                        ci[j] += a * bk_ptr[j];
+                    }
+                }
+            }
+        }
+    }
+}
+/* === KERNEL END === */
+
+int main(int argc, char **argv) {
+    int n = (int)arg_long(argc, argv, 1, 1024);
+    long nn = (long)n * n;
+    double *A = xmalloc(nn * sizeof *A), *B = xmalloc(nn * sizeof *B);
+    double *C = xmalloc(nn * sizeof *C);
+    rng_seed(2);
+    for (long i = 0; i < nn; i++) { A[i] = rng_unit(); B[i] = rng_unit(); }
+
+    double t0 = now_sec();
+    kernel(n, A, B, C);
+    double t1 = now_sec();
+
+    double sum = 0.0;
+    for (long i = 0; i < nn; i++) sum += C[i];
+    report("matmul", t1 - t0, sum);
+    free(A); free(B); free(C);
+    return 0;
+}

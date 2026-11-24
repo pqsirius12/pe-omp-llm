@@ -1,0 +1,22 @@
+# API keys: never commit
+.gemini_key
+.deepseek_key
+*.key
+.env
+# build and caches
+build/
+__pycache__/
+*.pyc
+.DS_Store
+analysis/out/
+# LaTeX intermediates
+paper/*.aux
+paper/*.log
+paper/*.blg
+paper/*.bbl
+paper/*.fls
+paper/*.fdb_latexmk
+paper/*.out
+# large raw powermetrics text (compressed copies are in results/power_raw/)
+results/power_*.txt
+_repo_pack/
