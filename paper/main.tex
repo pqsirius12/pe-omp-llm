@@ -3,7 +3,9 @@
 % Lines marked TODO are unfinished and must not survive into the submitted version.
 \documentclass[conference]{IEEEtran}
 \usepackage{cite,amsmath,graphicx,booktabs,xspace,url}
+\usepackage{xurl}
 \usepackage[hidelinks]{hyperref}
+\xspaceaddexceptions{\%}
 \input{numbers}
 \input{numbers_fig}
 \newcommand{\todo}[1]{\textbf{\textcolor{red}{[TODO: #1]}}}
@@ -18,33 +20,42 @@ Ramaiah Institute of Technology, Bangalore, India\\
 \maketitle
 
 \begin{abstract}
-Large language models are increasingly used to parallelize code, but no evaluation of LLM-generated OpenMP that we know of measures it on a processor whose cores run at different speeds. Consumer processors now mix fast performance (P) cores with slower efficiency (E) cores. We present the first study of LLM-generated OpenMP on such a processor: \NumAllAnswers{} answers from five LLM families (four vendors) for 15 C kernels, measured on an Apple M4 (4P+6E) with \NumTimedRunsAll{} timed runs and per-core activity and energy sampled during every run. No answer queried the core topology, and only one of \NumAllAnswers{} requested thread binding, even when the prompt described the hardware. The models nonetheless avoid most of the asymmetry penalty by habit, choosing adaptive schedules for visibly irregular loops; the residual cost falls on uniform loops, where static schedules run up to \NumStaticUniMax\% slower once threads spill onto E-cores. Describing the hardware changed the schedules of two models and not the others. Measurement feedback fixed none of the asymmetry and made work-removing shortcuts about \NumShortcutRatio{} times more common. The standard remedy for asymmetric processors, a start-up-calibrated static split, was slower than plain adaptive scheduling on every kernel we tried, because macOS migrates threads between core types. We release all prompts, answers, timings and scripts.
+Modern processors no longer have cores with the same capabilities. Large language models (LLMs) are increasingly used to parallelize programs through OpenMP, but whether the code they generate accounts for these differences remains largely unexplored. We investigate this on an Apple M4 processor with four performance (P) cores and six efficiency (E) cores. Across 15 C kernels, we collected \NumAllAnswers{} answers from five LLM families representing four vendors and evaluated them through \NumTimedRunsAll{} timed executions, alongside per-core activity and CPU energy measurements. The results reveal that none of the \NumAllAnswers{} answers explicitly examined the processor's core topology, and only one requested thread binding. Yet the models avoided much of the performance penalty on irregular workloads by frequently choosing adaptive scheduling strategies. This intuition did not extend to uniform workloads, where static scheduling caused slowdowns of up to \NumStaticUniMax\% when threads ran on E-cores. Describing the hardware influenced some models but not others. Measurement feedback failed to address the underlying asymmetry and made algorithmic shortcuts approximately \NumShortcutRatio{} times more common. We also find that start-up-calibrated scheduling performs worse than ordinary adaptive scheduling on every kernel tested, largely because macOS migrates threads between core types. These findings highlight an important gap between generating parallel code and understanding the hardware on which it executes. We release the prompts, generated answers, measurements and scripts to support independent reproduction.
 \end{abstract}
 
 \begin{IEEEkeywords}
-large language models, OpenMP, code generation, asymmetric multicore, heterogeneous cores, loop scheduling, Apple Silicon, energy
+large language models, OpenMP, code generation, asymmetric multicore, heterogeneous cores, loop scheduling, Apple silicon, energy
 \end{IEEEkeywords}
 
 %=====================================================================
 \section{Introduction}
-Large language models (LLMs) are now routinely asked to parallelize code, and a growing body of work evaluates how well they write OpenMP~\cite{nichols2024pareval,chen2024ompgpt,mahmud2025autoparllm,kadosh2024ompar}. None of these evaluations measures the code on a P/E hybrid processor. Consumer and laptop processors, however, are no longer homogeneous: Intel's hybrid chips and every Apple Silicon processor mix fast performance (P) cores with slower, more efficient (E) cores. On such processors the default assumption behind a static loop partition---that every thread finishes its equal share at the same time---is false, work on asymmetric multicore processors (AMPs), a long-studied scheduling problem~\cite{david2017amp}, shows that conventional OpenMP schedules leave fast cores idle~\cite{saez2020aid}. Intel's own library guide recommends running threads on the P-cores only, because splitting work across both core types is hard to balance~\cite{intel2025mkl}.
+There is a difference between dividing a task equally and ensuring that it is completed equally. Ten people may be given the same amount of work, yet the time each takes to finish it may differ considerably. The division is equal; the effort required is not. Computing, in many ways, faces the same predicament.
 
-This raises a question nobody has measured: \emph{when an LLM parallelizes a loop, does it account for cores of unequal speed, and what does it cost when it does not?} The closest prior work studies one hand-written Monte Carlo kernel on an Intel hybrid processor~\cite{beserra2026amp}; the closest LLM work compares generated code across CPU architectures, none of them a P/E hybrid~\cite{codegenbench2026}.
+Parallel computing is built around the idea of dividing work among multiple processing units. A program is broken into smaller tasks, distributed across available cores and executed concurrently. For this approach to work efficiently, however, the resources receiving the work must be considered. An equal share of computation does not necessarily mean an equal share of execution time.
 
-We answer the question on an Apple M4 (4\,P\,+\,6\,E cores, macOS), where the operating system---not the program---decides thread placement through quality-of-service classes~\cite{eclectic2022m1sched}, so thread pinning is unavailable. We ask:
+This becomes particularly important in modern processors. Architectures such as Apple silicon and Intel's hybrid processors combine performance (P) cores with efficiency (E) cores. These cores are designed for different purposes and do not offer the same computational capabilities. Consider static scheduling in OpenMP, where iterations are divided into predetermined portions and assigned to threads. On a homogeneous processor, this can be an effective strategy. On an asymmetric processor, however, the same division can leave faster cores waiting while slower cores continue working.
+
+Large language models (LLMs) are increasingly being used to transform serial programs into parallel implementations through OpenMP~\cite{nichols2024pareval,chen2024ompgpt,mahmud2025autoparllm,kadosh2024ompar}. Yet generating parallel code and generating code that accounts for the hardware executing it are two different challenges. A model may successfully identify an opportunity for parallel execution without recognizing that the processing units receiving the work are not equally capable.
+
+Although asymmetric multicore scheduling has been studied extensively~\cite{david2017amp,saez2020aid,intel2025mkl,beserra2026amp}, an important question remains: \emph{when an LLM parallelizes a program, does it recognize that the cores executing that program may have different capabilities?} Existing evaluations of LLM-generated parallel code have not, to the best of our knowledge, examined this question directly on a P/E-core hybrid processor~\cite{codegenbench2026}.
+
+We investigate this problem on an Apple M4 processor comprising four P-cores and six E-cores. The operating system, macOS, controls thread placement through quality-of-service (QoS) classes, making conventional thread binding unavailable~\cite{eclectic2022m1sched,eclectic2021m1perf}. This introduces an additional challenge: even a scheduling strategy designed around the relative speeds of different cores may become ineffective if the operating system moves threads between them. Our investigation is guided by four research questions:
 \begin{itemize}
-\item \textbf{RQ1:} Do LLMs account for core asymmetry when they parallelize serial C code with OpenMP?
-\item \textbf{RQ2:} How much performance does LLM-generated code lose relative to the best schedule an expert could choose?
-\item \textbf{RQ3:} Does describing the hardware in the prompt, or explicitly asking for E-core-aware code, change the code they write?
-\item \textbf{RQ4:} Does measurement feedback let them close the remaining gap?
+\item \textbf{RQ1:} Do LLMs account for core asymmetry when parallelizing serial C programs using OpenMP?
+\item \textbf{RQ2:} How much performance is lost through their scheduling decisions compared with the best schedule selected by an expert?
+\item \textbf{RQ3:} Does describing the processor's architecture, or explicitly requesting E-core-aware code, influence their decisions?
+\item \textbf{RQ4:} Can measurement feedback help them recognize and compensate for hardware asymmetry?
 \end{itemize}
+To answer these questions, we collected \NumAllAnswers{} answers from five LLM families representing four vendors, across 15 C kernels and four prompting conditions. We evaluated the generated programs through \NumTimedRunsAll{} timed executions and recorded per-core activity and CPU energy during the experiments.
 
 \textbf{Contributions.}
-(1)~The first empirical study of LLM-generated OpenMP on a performance-asymmetric processor: \NumAllAnswers{} answers from five LLM families from four vendors (six access paths) on 15 kernels, \NumTimedRunsAll{} timed runs.
-(2)~Direct evidence of where threads ran, from per-core activity sampled during every run, together with per-run CPU energy.
-(3)~A taxonomy separating heterogeneity-blind scheduling, compiler failures and algorithmic shortcuts, with a two-factor speedup decomposition that keeps shortcuts from masquerading as good parallelization.
-(4)~An evaluation of hardware-aware prompting and measurement feedback against expert schedules, including an AID-style calibrated split~\cite{saez2020aid}.
-(5)~All prompts, raw replies, timings, power logs and scripts, released for reproduction at \url{https://github.com/pqsirius12/pe-omp-llm} and archived on Zenodo (doi:\,\href{https://doi.org/10.5281/zenodo.24489050}{10.5281/zenodo.24489050}).
+(1)~An empirical evaluation of LLM-generated OpenMP on an asymmetric processor, covering \NumAllAnswers{} answers from five model families across 15 C kernels.
+(2)~Direct measurements of processor activity, showing how execution is distributed across P-cores and E-cores, alongside CPU energy measurements.
+(3)~A classification of generated code and optimization strategies, distinguishing parallelization-only implementations, work-preserving rewrites, compiler-collapsible rewrites and algorithmic shortcuts. We also use a two-factor speedup decomposition to distinguish improvements in serial execution from improvements in parallel scaling.
+(4)~An evaluation of hardware-aware prompting and measurement feedback, including comparisons against expert-selected schedules and an AID-style calibrated split~\cite{saez2020aid}.
+(5)~Reproducibility, through the release of prompts, generated answers, timings, power measurements and experimental scripts at \url{https://github.com/pqsirius12/pe-omp-llm} and the associated Zenodo archive (doi:\,\href{https://doi.org/10.5281/zenodo.24489050}{10.5281/zenodo.24489050}).
+
+The central question behind this work is simple: distributing computation is one thing; understanding the capabilities of the resources receiving it is another. We examine whether current LLMs can do both.
 
 %=====================================================================
 \section{Background and Related Work}
@@ -54,7 +65,7 @@ ParEval~\cite{nichols2024pareval} showed that LLMs do markedly worse on parallel
 \subsection{OpenMP on asymmetric processors}
 On AMPs, static schedules hand slow cores as much work as fast ones, and dynamic schedules pay a coordination cost. AID~\cite{saez2020aid} distributes iterations in proportion to measured core speed inside the runtime and improves on static and dynamic scheduling by up to 56\% and 16.8\%. On an Intel Core i5-1235U, standard OpenMP schedules suffer load imbalance on a Monte Carlo kernel and calibration-based splits improve runtime~\cite{beserra2026amp}, while a study of thread pinning on an Intel Alder Lake processor finds no single best policy~\cite{sscad_pinning}. Machine-learned optimization heuristics can choose such parameters but are typically trained for each target platform~\cite{wang2018mlcompiler}. These approaches target human-written code or the runtime; none examines what LLMs produce.
 
-\subsection{Apple Silicon}
+\subsection{Apple silicon}
 The M4 has four P-cores and six E-cores. macOS places threads by quality-of-service class: lowest-QoS threads run only on E-cores, and higher-QoS work fills P-cores first and then spills onto E-cores~\cite{eclectic2022m1sched,eclectic2021m1perf}. OpenMP's binding controls therefore have no effect. Peer-reviewed measurements of this behaviour are scarce~\cite{lviv2025applesched}; Section~\ref{sec:placement} contributes direct per-core evidence.
 
 %=====================================================================
@@ -90,10 +101,10 @@ For an answer with median times $T_1$ and $T_{10}$ and serial time $T_s$ we repo
 %=====================================================================
 \section{Results}
 \subsection{Correctness}
-Of the \NumOrigAnswers{} answers to the plain and hardware prompts, Claude and Gemini Flash produced correct programs every time (\NumCorrectClaude\% and \NumCorrectFlash\%), Gemma \NumCorrectGemma\%, ChatGPT \NumCorrectChatgpt\%, DeepSeek via the web \NumCorrectDeepseek\% and via the API \NumCorrectDsapi\%. Most compile errors share one cause: code that calls \texttt{omp\_get\_thread\_num()} without including \texttt{omp.h}, which GCC accepts with a warning but Apple clang rejects. DeepSeek's failures were replies containing only fragments of \texttt{kernel()}; the remaining failures were \NumOrigCompile{} compile errors under Apple clang, \NumOrigCrash{} crash and \NumOrigWrong{} wrong result (\NumOrigNoCode{} replies had no complete program). Correctness was judged against the serial checksum after we removed one compiler effect: Apple clang~21 miscompiles the histogram kernel's per-thread bin loop at \texttt{-O2} (correct with vectorization disabled or at \texttt{-O0}, no undefined behaviour found), so every histogram variant, serial included, was built with \texttt{-fno-vectorize}.
+Of the \NumOrigAnswers{} answers to the plain and hardware prompts, Claude and Gemini Flash produced correct programs every time, Gemma \NumCorrectGemma\%, ChatGPT \NumCorrectChatgpt\%, DeepSeek via the web \NumCorrectDeepseek\% and via the API \NumCorrectDsapi\%. Most compile errors share one cause: code that calls \texttt{omp\_get\_thread\_num()} without including \texttt{omp.h}, which GCC accepts with a warning but Apple clang rejects. DeepSeek's failures were replies containing only fragments of \texttt{kernel()}; the remaining failures were \NumOrigCompile{} compile errors under Apple clang, \NumOrigCrash{} crashes and \NumOrigWrong{} wrong results (\NumOrigNoCode{} replies had no complete program). Correctness was judged against the serial checksum after we removed one compiler effect: Apple clang~21 miscompiles the histogram kernel's per-thread bin loop at \texttt{-O2} (correct with vectorization disabled or at \texttt{-O0}, no undefined behaviour found), so every histogram variant, serial included, was built with \texttt{-fno-vectorize}.
 
 \subsection{Where threads actually run}\label{sec:placement}
-Fig.~\ref{fig:placement} shows, for long expert runs, how many core-equivalents of each type were busy. Up to four threads stay on the P-cores (\NumPlaceFourP{} P-cores and \NumPlaceFourE{} E-cores busy at four threads); from six threads macOS spills onto the E-cores, reaching \NumPlaceTenE{} busy E-cores at ten threads while the P-cores stay near \NumPlaceTenP. This is the first direct measurement we know of that confirms the P-first placement policy described informally for Apple Silicon~\cite{eclectic2021m1perf}, and it means any thread beyond the fourth runs on a slower core.
+Fig.~\ref{fig:placement} shows, for long expert runs, how many core-equivalents of each type were busy. Up to four threads stay on the P-cores (\NumPlaceFourP{} P-cores and \NumPlaceFourE{} E-cores busy at four threads); from six threads macOS spills onto the E-cores, reaching \NumPlaceTenE{} busy E-cores at ten threads while the P-cores stay near \NumPlaceTenP. This is the first direct measurement we know of that confirms the P-first placement policy described informally for Apple silicon~\cite{eclectic2021m1perf}, and it means any thread beyond the fourth runs on a slower core.
 
 \begin{figure}[t]\centering
 \includegraphics[width=\columnwidth]{figs/placement.pdf}
@@ -116,7 +127,7 @@ Fig.~\ref{fig:penalty} isolates the cost of a static schedule using the expert v
 \caption{Slowdown of \texttt{schedule(static)} relative to the best schedule at 10 threads (expert code; 95\% bootstrap CI over repetitions).}\label{fig:penalty}
 \end{figure}
 
-LLM answers that only add OpenMP directives (class W0) land close to the best expert schedule on average (Fig.~\ref{fig:vsbest}): geometric means lie between \NumWzeroMin{} and \NumWzeroMax{} of the expert's speed, because the kernels where a wrong schedule costs most are exactly those where the models habitually choose an adaptive one. The loss is concentrated in static answers to balanced kernels, which carry the penalty of up to \NumStaticUniMax\% shown above.
+LLM answers that only add OpenMP directives (class W0) land close to the best expert schedule on average (Fig.~\ref{fig:vsbest}): geometric means lie between \NumWzeroMin{} and \NumWzeroMax{} of the expert's speed, because the kernels where a wrong schedule costs most are exactly those where the models habitually choose an adaptive one. The loss is concentrated in static answers to uniform kernels, which carry the penalty of up to \NumStaticUniMax\% shown above.
 
 \begin{figure}[t]\centering
 \includegraphics[width=\columnwidth]{figs/vs_best.pdf}
@@ -150,7 +161,7 @@ Using all cores with a good schedule is also the most frugal option: one mandelb
 \section{Discussion}
 \textbf{Why LLM code mostly survives asymmetry.} The models do not reason about the hardware; none queried it in \NumAllAnswers{} answers. They avoid most of the cost by habit: for loops with visibly uneven work they almost always choose \texttt{dynamic} or \texttt{guided} (\NumAdaptIrregular\% of plain answers), and those are also the right choice on an asymmetric processor; for uniform loops they almost never do (\NumAdaptUniform\%). The residual cost lies where the habit and the hardware disagree: loops whose iterations are equally expensive look safe to statically partition, yet on the M4 equal chunks finish at unequal times once the fifth thread lands on an E-core.
 
-\textbf{Why the textbook fix fails here.} Calibrated splits assume that a thread keeps its core. macOS gives no affinity control and moves threads between clusters (Fig.~\ref{fig:placement}), so a split measured at start-up is stale within the loop. On this platform, adaptive scheduling---or simply oversubscription---is more robust than static calibration.
+\textbf{Why the textbook fix fails here.} Calibrated splits assume that a thread keeps its core. macOS gives no affinity control and can move threads between core types~\cite{eclectic2022m1sched}, so a split measured at start-up is stale within the loop. On this platform, adaptive scheduling---or simply oversubscription---is more robust than static calibration.
 
 \textbf{Why feedback does not help.} Measured times tell a model that its code is slow but not why. Without a hint about core types, every model looked for serial inefficiency, which on our kernels was often real, and frequently found it by removing repeated work. Optimization feedback for parallel code therefore needs to carry the hardware cause, or the evaluation must guard against shortcuts, as ours does with the $F\cdot S$ decomposition.
 
@@ -165,10 +176,22 @@ Using all cores with a good schedule is also the most frugal option: one mandelb
 \textbf{Classification.} Shortcut and rewrite classes were assigned by reading code; the rules and per-answer labels are released for inspection.
 
 \section{Conclusion}
-LLMs parallelize loops for asymmetric P/E-core processors without ever considering that the cores differ. They lose little on irregular loops, where habit leads them to adaptive schedules, and up to \NumStaticUniMax\% on uniform loops, where habit leads them to static ones. Describing the hardware helps some models and not others; measurement feedback helps none with the asymmetry and makes shortcuts about \NumShortcutRatio{} times more common. Simple practices---adaptive schedules everywhere, or oversubscription---recover most of the loss, while start-up calibration does not survive thread migration on macOS. Our prompts, answers, timings, power logs and scripts are released to support replication on other hybrid processors.
+Dividing work across multiple cores is only part of parallel computing. How that work is distributed, and the capabilities of the cores receiving it, can make the difference between an efficient program and an inefficient one. Our experiments show that this distinction is not consistently recognized by current LLMs when generating OpenMP code for asymmetric processors.
+
+Across \NumAllAnswers{} generated answers, none explicitly examined the processor's core topology. The models nevertheless performed reasonably well on irregular workloads, frequently choosing adaptive scheduling strategies. However, this behaviour did not extend to uniform workloads. Static scheduling introduced slowdowns of up to \NumStaticUniMax\% when threads extended beyond the P-cores onto the slower E-cores.
+
+Providing information about the hardware changed the decisions of some models, but not all. Measurement feedback was even less effective at addressing the underlying problem. Rather than recognizing the processor's asymmetry, models often attempted to improve execution by changing the algorithms themselves. Consequently, algorithmic shortcuts became approximately \NumShortcutRatio{} times more common. A faster result, therefore, did not always mean better parallelization.
+
+We also found that start-up calibration, a conventional approach to distributing work across cores of different speeds, was not effective under the thread-migration behaviour observed on macOS. A distribution based on the initial capabilities of individual threads could become outdated once those threads moved between core types. In our experiments, ordinary adaptive scheduling and, to a lesser extent, oversubscription proved more reliable alternatives.
+
+For practitioners, these findings suggest using adaptive scheduling strategies when deploying LLM-generated OpenMP on hybrid processors, rather than assuming that static scheduling or start-up calibration will always be effective. They also highlight the need to examine the actual algorithmic changes made during optimization, particularly when measurement feedback produces substantial speedups.
+
+This study is limited to one Apple M4 system running macOS. Other hybrid processors and operating systems may behave differently, and further experiments are needed to establish how widely these findings apply.
+
+Ultimately, parallelism is not simply about how many cores receive the work, but whether the work makes sense for the cores receiving it. As LLMs take on a greater role in generating and optimizing programs, their ability to account for the hardware beneath their code deserves as much attention as their ability to write the code itself.
 
 \section*{Acknowledgment}
-Claude (Anthropic) helped draft the text, analysis scripts and figures. The authors ran all experiments and verified every result.
+The authors wrote the abstract, introduction and conclusion. Claude (Anthropic) helped draft the remaining text, analysis scripts and figures. The authors ran all experiments and verified every result.
 
 \bibliographystyle{IEEEtran}
 \bibliography{refs}

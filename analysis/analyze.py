@@ -293,7 +293,7 @@ def extended_numbers():
         up = int(((g.plain != "adaptive") & (g.hw == "adaptive")).sum()); dn = int(((g.plain == "adaptive") & (g.hw != "adaptive")).sum())
         tag = m.capitalize(); n[f"NumSwitchUp{tag}"] = up; n[f"NumSwitchDown{tag}"] = dn
         n[f"NumSwitchP{tag}"] = ("n/a" if up + dn == 0 else
-                                 ("<0.0001" if stats.binomtest(up, up + dn, 0.5).pvalue < 1e-4 else f"{stats.binomtest(up, up + dn, 0.5).pvalue:.3f}"))
+                                 (r"\textless{}0.0001" if stats.binomtest(up, up + dn, 0.5).pvalue < 1e-4 else f"{stats.binomtest(up, up + dn, 0.5).pvalue:.3f}"))
     p = os.path.join(os.path.dirname(__file__), "..", "paper", "numbers.tex")
     with open(p, "a") as f:
         f.write("% --- extended numbers ---\n")
